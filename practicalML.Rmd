@@ -83,7 +83,7 @@ print(fit1_rf, digits=3)
 
 ### Model Selection (predict on train2) Cross Validation
 ```{r}
-predict_train1v2 <- predict(oddFit1_rpart, newdata=train2)
+predict_train1v2 <- predict(fit1_rpart, newdata=train2)
 print(confusionMatrix(predict_train1v2, train2$classe), digits=2)
 #sensitivity and specificity are terrible
 
@@ -91,7 +91,7 @@ predict_train1v2_2 <- predict(fit2_rpart, newdata=train2)
 print(confusionMatrix(predict_train1v2_2, train2$classe), digits=4)
 #still not great
 
-predict_train1v2_3 <- predict(oddFit3_rpart, newdata=train2)
+predict_train1v2_3 <- predict(fit3_rpart, newdata=train2)
 print(confusionMatrix(predict_train1v2_3, train2$classe), digits=4)
 #even worse
 
