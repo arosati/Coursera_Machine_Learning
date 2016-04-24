@@ -1,0 +1,116 @@
+---
+title: "Practical Machine Learning"
+author: "Toni Rosati"
+date: "April 23, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+### Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(knitr) 
+```
+
+### Data
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+#training dataset
+whole_train<-read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+#testing dataset
+testdata<-read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+### Cleaning the Data
+It is unnecessary to have data that are precalculated, so I have removed the columns labeled "max_", "min_", "kurtosis", "skewness", "stddev", "var_", "avg_", and "amplitude". This is done for both the training set and the testing set.
+```{r}
+#remove anything that says max_ min_ kurtosis skewness stddev var_ avg_ amplitude
+train<-whole_train[,c(8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+test<-testdata[,c(8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+```
+
+### Creating Training Subsets
+Since the training dataset is large enough, I've subset it into a training and a probe set. This will allow me to validate accuracy of the model before applying it to the test set.
+```{r}
+inTrainPart<- createDataPartition(y=train$classe, p=.5, list=FALSE)
+train1<-train[inTrainPart,]
+train2<-train[-inTrainPart,]
+#The two subsets have equivalent Classe 
+summary(train1$classe)
+summary(train2$classe)
+```
+
+### Fit a model using Recursive Partitioning and Regression Trees (r_part)
+Based on the Coursera forums, I've opted to build models using rpart and random forest. I'm starting with rpart because the computational time is much shorter.
+```{r}
+set.seed(459)
+fit1_rpart<-train(classe~., data=train1, method="rpart")
+fit1_rpart
+fancyRpartPlot(fit1_rpart$finalModel)
+
+fit2_rpart <- train(train1$classe ~ .,  preProcess=c("center", "scale"), data = train1, method="rpart")
+print(fit2_rpart, digits=3)
+fancyRpartPlot(fit2_rpart$finalModel)
+
+fit3_rpart <- train(classe ~ .,  trControl=trainControl(method = "cv", number = 4), data = train1, method="rpart")
+print(fit3_rpart, digits=3)
+fancyRpartPlot(fit3_rpart$finalModel)
+
+
+```
+
+### Fit a Random Forest Model
+Based on the Coursera forums, I've opted to build models using rpart and random forest.
+```{r}
+set.seed(459)
+fit1_rf<-train(classe~., data=train1, method="rf")
+print(fit1_rf, digits=3)
+```
+
+### Model Selection (predict on train2) Cross Validation
+```{r}
+predict_train1v2 <- predict(oddFit1_rpart, newdata=train2)
+print(confusionMatrix(predict_train1v2, train2$classe), digits=2)
+#sensitivity and specificity are terrible
+
+predict_train1v2_2 <- predict(fit2_rpart, newdata=train2)
+print(confusionMatrix(predict_train1v2_2, train2$classe), digits=4)
+#still not great
+
+predict_train1v2_3 <- predict(oddFit3_rpart, newdata=train2)
+print(confusionMatrix(predict_train1v2_3, train2$classe), digits=4)
+#even worse
+
+predict_train1v2_rf <- predict(fit1_rf, newdata=train2)
+print(confusionMatrix(predict_train1v2_rf, train2$classe), digits=4)
+#results are fantastic!
+```
+
+### Prediction on Testing Set
+```{r}
+predictions <- predict(fit1_rf, test[,-53])
+predictions
+```
+
+### Expected Out of Sample Error
+The expected error is 1.03% for the Random Forest model.
+```{r}
+print(fit1_rf$finalModel, digits=3)
+```
+
+### Conclusion
+While Recursive Partitioning and Regression Trees (r_part) allowed for the display of a Fancy Plot and processed much quicker, it did not provide nearly the level of accuracy that Random Forrest could. 
